@@ -1,0 +1,18 @@
+{
+  "identities": [
+    {
+      "name": "seaweedfs",
+      "credentials": [
+        {
+          "accessKey": "seaweed_access",
+          "secretKey": "seaweed_secret"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "Write"
+      ]
+    }
+  ]
+}
