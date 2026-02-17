@@ -8,28 +8,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/storage-gateway/src/internal/config"
 	server "github.com/storage-gateway/src/internal/http"
 	"github.com/storage-gateway/src/internal/service"
-	"github.com/storage-gateway/src/internal/storage/primary"
+	"github.com/storage-gateway/src/internal/storage/s3_store"
 )
 
 func main() {
-	cfg := config.LoadConfig()
-
-	options := s3.Options{
-		Region:       cfg.Region,
-		Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "")),
-		BaseEndpoint: aws.String(cfg.Endpoint),
-		UsePathStyle: true,
-	}
-
-	s3Client := s3.New(options)
-
-	store := primary.NewClient(s3Client)
+	store := s3_store.GetPrimaryStore()
 	files := service.NewFileService(store)
 	handler := server.NewHandler(files)
 

@@ -4,11 +4,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/storage-gateway/src/internal/config"
 	"github.com/storage-gateway/src/internal/service"
+	"github.com/storage-gateway/src/internal/storage"
+	"github.com/storage-gateway/src/internal/storage/backup"
 )
 
 type Handler struct {
@@ -57,13 +60,23 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	err = h.files.Upload(r.Context(), bucket, key, file, contentType, metadata)
+	// compress and upload
+
+	err = h.files.Upload(r.Context(), bucket, key, file, storage.PutOptions{
+		ContentType:   contentType,
+		Metadata:      metadata,
+		ContentLength: header.Size,
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// backup to specified service if enabled
+	// queue this
+	backup.ProcessBackup(backup.BackupJob{
+		Key:    key,
+		Bucket: bucket,
+	})
 
 	w.WriteHeader(http.StatusCreated)
 }
@@ -75,17 +88,24 @@ func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 	exists := h.files.Exists(r.Context(), bucket, key)
 
 	if exists {
-		body, err := h.files.GetFile(r.Context(), bucket, key)
+		out, err := h.files.GetFile(r.Context(), bucket, key)
 		if err != nil {
+			log.Printf("exist nf: %s", err.Error())
 			http.NotFound(w, r)
 			return
 		}
-		defer body.Close()
+		defer out.Body.Close()
 
-		io.Copy(w, body)
+		io.Copy(w, out.Body)
 	} else {
-		// try to fetch from backup service if enabled and put it in primary storage for future requests
+		out, err := backup.FetchFromBackup(r.Context(), backup.BackupJob{Key: key, Bucket: bucket})
+		if err != nil {
+			log.Printf("not exist nf: %s", err.Error())
+			http.NotFound(w, r)
+			return
+		}
+		defer out.Body.Close()
 
-		http.NotFound(w, r)
+		io.Copy(w, out.Body)
 	}
 }

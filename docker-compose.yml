@@ -18,7 +18,7 @@ services:
       - "8333:8333"
       - "8888:8888"
     volumes:
-      - ~/seaweedfs/data:/data
+      - ${SEAWEED_VOLUME_LOCATION:-~/seaweedfs/data}:/data
       - ./config.json:/config.json:ro
     networks: [storage]
     restart: unless-stopped
