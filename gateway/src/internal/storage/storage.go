@@ -14,11 +14,16 @@ type PutOptions struct {
 	ContentLength int64
 }
 
-type Object struct {
-	ContentType string
-	Metadata    map[string]string
-	Body        io.ReadCloser
+type Object[T any] struct {
+	ContentType   string
+	Metadata      map[string]string
+	ContentLength int64
+	Body          T
 }
+
+type PutObject = Object[io.Reader]
+
+type GetObject = Object[io.ReadCloser]
 
 type Client struct {
 	S3       *s3.Client
@@ -26,8 +31,8 @@ type Client struct {
 }
 
 type Storage interface {
-	Put(ctx context.Context, bucket string, key string, r io.Reader, opts PutOptions) error
-	Get(ctx context.Context, bucket string, key string) (Object, error)
+	Put(ctx context.Context, bucket string, key string, r io.Reader, opts *PutOptions) error
+	Get(ctx context.Context, bucket string, key string) (*GetObject, error)
 	Delete(ctx context.Context, bucket string, key string) error
 	Exists(ctx context.Context, bucket string, key string) bool
 }

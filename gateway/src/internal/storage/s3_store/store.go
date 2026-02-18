@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/storage-gateway/src/internal/storage"
+	"github.com/storage-gateway/src/internal/storage/optimizer"
 )
 
 type Filer struct {
@@ -20,11 +21,11 @@ func NewClient(client *s3.Client) *Filer {
 	}
 }
 
-func (s *Filer) Put(ctx context.Context, bucket string, key string, r io.Reader, opts storage.PutOptions) error {
-	_, bucketErr := s.S3.HeadBucket(ctx, &s3.HeadBucketInput{
+func (s *Filer) Put(ctx context.Context, bucket string, key string, r io.Reader, opts *storage.PutOptions) error {
+	_, err := s.S3.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: &bucket,
 	})
-	if bucketErr != nil {
+	if err != nil {
 		println("Creating bucket: ", bucket)
 		_, err := s.S3.CreateBucket(ctx, &s3.CreateBucketInput{
 			Bucket: &bucket,
@@ -33,26 +34,35 @@ func (s *Filer) Put(ctx context.Context, bucket string, key string, r io.Reader,
 			return err
 		}
 	}
-	_, err := s.S3.PutObject(ctx, &s3.PutObjectInput{
+	object := &storage.PutObject{
+		ContentType: opts.ContentType,
+		Metadata:    opts.Metadata,
+		Body:        r,
+	}
+	object, err = optimizer.Optimize(object)
+	if err != nil {
+		return err
+	}
+	_, err = s.S3.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(bucket),
 		Key:           aws.String(key),
-		Body:          r,
-		ContentType:   aws.String(opts.ContentType),
-		Metadata:      opts.Metadata,
-		ContentLength: &opts.ContentLength,
+		Body:          object.Body,
+		ContentType:   aws.String(object.ContentType),
+		Metadata:      object.Metadata,
+		ContentLength: &object.ContentLength,
 	})
 	return err
 }
 
-func (s *Filer) Get(ctx context.Context, bucket string, key string) (storage.Object, error) {
+func (s *Filer) Get(ctx context.Context, bucket string, key string) (*storage.GetObject, error) {
 	out, err := s.S3.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return storage.Object{}, err
+		return nil, err
 	}
-	return storage.Object{
+	return &storage.GetObject{
 		ContentType: *out.ContentType,
 		Metadata:    out.Metadata,
 		Body:        out.Body,

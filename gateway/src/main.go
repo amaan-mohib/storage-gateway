@@ -8,12 +8,15 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/davidbyttow/govips/v2/vips"
 	server "github.com/storage-gateway/src/internal/http"
 	"github.com/storage-gateway/src/internal/service"
 	"github.com/storage-gateway/src/internal/storage/s3_store"
 )
 
 func main() {
+	vips.Startup(nil)
+
 	store := s3_store.GetPrimaryStore()
 	files := service.NewFileService(store)
 	handler := server.NewHandler(files)
@@ -27,9 +30,10 @@ func main() {
 	http.ListenAndServe(":5000", r)
 
 	gracefulShutdown(
-		// func() error {
-		// 	return rabbit.Service.Channel.Close()
-		// },
+		func() error {
+			vips.Shutdown()
+			return nil
+		},
 		func() error {
 			os.Exit(0)
 			return nil

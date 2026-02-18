@@ -9,6 +9,7 @@ import (
 	"cloud.google.com/go/storage"
 	firebase "firebase.google.com/go"
 	internal "github.com/storage-gateway/src/internal/storage"
+	"github.com/storage-gateway/src/internal/storage/optimizer"
 	"google.golang.org/api/option"
 )
 
@@ -52,10 +53,20 @@ func (s *Filer) Put(ctx context.Context, bucketStr string, key string, r io.Read
 		return err
 	}
 
-	wc := bucket.Object(key).NewWriter(ctx)
-	wc.ObjectAttrs.Metadata = opts.Metadata
+	object := &internal.PutObject{
+		ContentType: opts.ContentType,
+		Metadata:    opts.Metadata,
+		Body:        r,
+	}
+	object, err = optimizer.Optimize(object)
+	if err != nil {
+		return err
+	}
 
-	if _, err = io.Copy(wc, r); err != nil {
+	wc := bucket.Object(key).NewWriter(ctx)
+	wc.ObjectAttrs.Metadata = object.Metadata
+
+	if _, err = io.Copy(wc, object.Body); err != nil {
 		return fmt.Errorf("io.Copy: %w", err)
 	}
 	// Data can continue to be added to the file until the writer is closed.
@@ -66,23 +77,23 @@ func (s *Filer) Put(ctx context.Context, bucketStr string, key string, r io.Read
 	return nil
 }
 
-func (s *Filer) Get(ctx context.Context, bucketStr string, key string) (internal.Object, error) {
+func (s *Filer) Get(ctx context.Context, bucketStr string, key string) (*internal.GetObject, error) {
 	bucket, err := s.GetBucket(ctx, bucketStr)
 	if err != nil {
-		return internal.Object{}, err
+		return nil, err
 	}
 	o := bucket.Object(key)
 	attrs, err := o.Attrs(ctx)
 	if err != nil {
-		return internal.Object{}, fmt.Errorf("object.Attrs: %w", err)
+		return nil, fmt.Errorf("object.Attrs: %w", err)
 	}
 	rc, err := o.NewReader(ctx)
 	if err != nil {
-		return internal.Object{}, fmt.Errorf("Object(%q).NewReader: %w", key, err)
+		return nil, fmt.Errorf("Object(%q).NewReader: %w", key, err)
 	}
 	defer rc.Close()
 
-	return internal.Object{
+	return &internal.GetObject{
 		ContentType: attrs.ContentType,
 		Metadata:    attrs.Metadata,
 		Body:        rc,

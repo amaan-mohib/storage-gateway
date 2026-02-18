@@ -23,7 +23,7 @@ func NewHandler(files *service.FileService) *Handler {
 }
 
 func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("X-AccessToken")
+	token := r.Header.Get("X-Access-Token")
 	if token == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -60,9 +60,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// compress and upload
-
-	err = h.files.Upload(r.Context(), bucket, key, file, storage.PutOptions{
+	err = h.files.Upload(r.Context(), bucket, key, file, &storage.PutOptions{
 		ContentType:   contentType,
 		Metadata:      metadata,
 		ContentLength: header.Size,
@@ -73,7 +71,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// queue this
-	backup.ProcessBackup(backup.BackupJob{
+	backup.ProcessBackup(&backup.BackupJob{
 		Key:    key,
 		Bucket: bucket,
 	})
@@ -84,11 +82,12 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 	bucket := chi.URLParam(r, "bucket")
 	key := chi.URLParam(r, "*")
+	ctx := r.Context()
 
-	exists := h.files.Exists(r.Context(), bucket, key)
+	exists := h.files.Exists(ctx, bucket, key)
 
 	if exists {
-		out, err := h.files.GetFile(r.Context(), bucket, key)
+		out, err := h.files.GetFile(ctx, bucket, key)
 		if err != nil {
 			log.Printf("exist nf: %s", err.Error())
 			http.NotFound(w, r)
@@ -98,7 +97,7 @@ func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 
 		io.Copy(w, out.Body)
 	} else {
-		out, err := backup.FetchFromBackup(r.Context(), backup.BackupJob{Key: key, Bucket: bucket})
+		out, err := backup.FetchFromBackup(ctx, &backup.BackupJob{Key: key, Bucket: bucket})
 		if err != nil {
 			log.Printf("not exist nf: %s", err.Error())
 			http.NotFound(w, r)

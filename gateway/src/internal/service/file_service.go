@@ -15,11 +15,11 @@ func NewFileService(store storage.Storage) *FileService {
 	return &FileService{store: store}
 }
 
-func (s *FileService) Upload(ctx context.Context, bucket string, key string, r io.Reader, opts storage.PutOptions) error {
+func (s *FileService) Upload(ctx context.Context, bucket string, key string, r io.Reader, opts *storage.PutOptions) error {
 	return s.store.Put(ctx, bucket, key, r, opts)
 }
 
-func (s *FileService) GetFile(ctx context.Context, bucket string, key string) (storage.Object, error) {
+func (s *FileService) GetFile(ctx context.Context, bucket string, key string) (*storage.GetObject, error) {
 	return s.store.Get(ctx, bucket, key)
 }
 

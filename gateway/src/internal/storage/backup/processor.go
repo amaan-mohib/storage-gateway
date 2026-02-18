@@ -16,7 +16,30 @@ import (
 	"github.com/storage-gateway/src/internal/storage/s3_store"
 )
 
-func getFirebaseConfigFromPath(secretsPath string, bucket string) (string, string, string, error) {
+var secretsPath = config.GetSafeEnv("SECRETS_PATH", "/home/amaan/projects/storage-gateway/secrets")
+
+func getAvailableSecrets(bucket string) ([]string, error) {
+	entries, err := os.ReadDir(path.Join(secretsPath, bucket))
+	if err != nil {
+		return nil, err
+	}
+
+	secrets := []string{}
+	for _, dir := range entries {
+		if dir.IsDir() {
+			continue
+		}
+		switch dir.Name() {
+		case "firebase.json":
+			secrets = append(secrets, "firebase")
+		case "s3_credentials":
+			secrets = append(secrets, "s3")
+		}
+	}
+	return secrets, err
+}
+
+func getFirebaseConfigFromPath(bucket string) (string, string, string, error) {
 	firebaseConfigPath := path.Join(secretsPath, bucket, "firebase.json")
 	firebaseFile, err := os.ReadFile(firebaseConfigPath)
 	if err != nil {
@@ -34,7 +57,7 @@ func getFirebaseConfigFromPath(secretsPath string, bucket string) (string, strin
 	return firebaseConfigPath, projectId, bucketStr, err
 }
 
-func getS3ConfigFromPath(secretsPath string, bucket string) (string, error) {
+func getS3ConfigFromPath(bucket string) (string, error) {
 	s3ConfigPath := path.Join(secretsPath, bucket, "s3_credentials")
 	if _, err := os.ReadFile(s3ConfigPath); err != nil {
 		return "", err
@@ -42,8 +65,8 @@ func getS3ConfigFromPath(secretsPath string, bucket string) (string, error) {
 	return s3ConfigPath, nil
 }
 
-func processS3Backup(ctx context.Context, original storage.Object, bucket string, key string, secretsPath string) error {
-	s3ConfigPath, err := getS3ConfigFromPath(secretsPath, bucket)
+func processS3Backup(ctx context.Context, original *storage.PutObject, bucket string, key string) error {
+	s3ConfigPath, err := getS3ConfigFromPath(bucket)
 	if err != nil {
 		return err
 	}
@@ -51,11 +74,11 @@ func processS3Backup(ctx context.Context, original storage.Object, bucket string
 	if err != nil {
 		return err
 	}
-	return s3Client.Put(ctx, bucket, key, original.Body, storage.PutOptions{ContentType: original.ContentType, Metadata: original.Metadata})
+	return s3Client.Put(ctx, bucket, key, original.Body, &storage.PutOptions{ContentType: original.ContentType, Metadata: original.Metadata})
 }
 
-func processFirebaseBackup(ctx context.Context, original storage.Object, bucket string, key string, secretsPath string) error {
-	firebaseConfigPath, projectId, bucketStr, err := getFirebaseConfigFromPath(secretsPath, bucket)
+func processFirebaseBackup(ctx context.Context, original *storage.PutObject, bucket string, key string) error {
+	firebaseConfigPath, projectId, bucketStr, err := getFirebaseConfigFromPath(bucket)
 	if err != nil {
 		return err
 	}
@@ -67,41 +90,41 @@ func processFirebaseBackup(ctx context.Context, original storage.Object, bucket 
 	return firebaseClient.Put(ctx, bucketStr, key, original.Body, storage.PutOptions{ContentType: original.ContentType, Metadata: original.Metadata})
 }
 
-func getS3Backup(ctx context.Context, bucket string, key string, secretsPath string) (storage.Object, error) {
-	s3ConfigPath, err := getS3ConfigFromPath(secretsPath, bucket)
+func getS3Backup(ctx context.Context, bucket string, key string) (*storage.GetObject, error) {
+	s3ConfigPath, err := getS3ConfigFromPath(bucket)
 	if err != nil {
-		return storage.Object{}, err
+		return nil, err
 	}
 	s3Client, err := s3_store.CreateClient(ctx, s3ConfigPath)
 	if err != nil {
-		return storage.Object{}, err
+		return nil, err
 	}
 	return s3Client.Get(ctx, bucket, key)
 }
 
-func getFirebaseBackup(ctx context.Context, bucket string, key string, secretsPath string) (storage.Object, error) {
-	firebaseConfigPath, projectId, bucketStr, err := getFirebaseConfigFromPath(secretsPath, bucket)
+func getFirebaseBackup(ctx context.Context, bucket string, key string) (*storage.GetObject, error) {
+	firebaseConfigPath, projectId, bucketStr, err := getFirebaseConfigFromPath(bucket)
 	if err != nil {
-		return storage.Object{}, err
+		return nil, err
 	}
 	firebaseClient, err := firebase_store.CreateClient(ctx, firebaseConfigPath, projectId)
 	if err != nil {
-		return storage.Object{}, err
+		return nil, err
 	}
 
 	return firebaseClient.Get(ctx, bucketStr, key)
 }
 
-func ProcessBackup(job BackupJob) error {
+func ProcessBackup(job *BackupJob) error {
 	ctx := context.Background()
 	key, bucket := job.Key, job.Bucket
 	primaryStore := s3_store.GetPrimaryStore()
 
 	original, err := primaryStore.Get(ctx, bucket, key)
-
 	if err != nil {
 		return err
 	}
+
 	defer original.Body.Close()
 
 	// Buffer the body content to allow multiple reads
@@ -109,66 +132,65 @@ func ProcessBackup(job BackupJob) error {
 	if err != nil {
 		return err
 	}
-
-	secretsPath := config.GetSafeEnv("SECRETS_PATH", "/home/amaan/projects/storage-gateway/secrets")
-
-	// Create a copy of the object with the buffered body for S3 backup
-	s3Obj := storage.Object{
-		Body:        io.NopCloser(bytes.NewReader(bodyBytes)),
-		ContentType: original.ContentType,
-		Metadata:    original.Metadata,
-	}
-	if err = processS3Backup(ctx, s3Obj, bucket, key, secretsPath); err != nil {
-		fmt.Printf("Error processing s3 backup: %s", err.Error())
+	creds, err := getAvailableSecrets(bucket)
+	if err != nil {
+		return err
 	}
 
-	// Create a copy of the object with the buffered body for Firebase backup
-	fbObj := storage.Object{
-		Body:        io.NopCloser(bytes.NewReader(bodyBytes)),
-		ContentType: original.ContentType,
-		Metadata:    original.Metadata,
-	}
-	if err = processFirebaseBackup(ctx, fbObj, bucket, key, secretsPath); err != nil {
-		fmt.Printf("Error processing firebase backup: %s", err.Error())
+	for _, method := range creds {
+		obj := &storage.PutObject{
+			Body:        bytes.NewReader(bodyBytes),
+			ContentType: original.ContentType,
+			Metadata:    original.Metadata,
+		}
+		if method == "firebase" {
+			if err = processFirebaseBackup(ctx, obj, bucket, key); err != nil {
+				fmt.Printf("Error processing firebase backup: %s", err.Error())
+			}
+		} else {
+			if err = processS3Backup(ctx, obj, bucket, key); err != nil {
+				fmt.Printf("Error processing s3 backup: %s", err.Error())
+			}
+		}
 	}
 
 	return nil
 }
 
-func FetchFromBackup(ctx context.Context, job BackupJob) (storage.Object, error) {
-	key, bucket := job.Key, job.Bucket
-	secretsPath := config.GetSafeEnv("SECRETS_PATH", "/home/amaan/projects/storage-gateway/secrets")
-	obj, err := getFirebaseBackup(ctx, bucket, key, secretsPath)
-	if err == nil {
-		// queue this
-		if err2 := uploadToPrimary(ctx, job, "firebase"); err2 != nil {
-			log.Printf("fb 2 p: %s", err2.Error())
-		}
-		return obj, nil
-	} else {
-		log.Printf("fb: %s", err.Error())
-
+func getBackup(ctx context.Context, method string, bucket string, key string) (*storage.GetObject, error) {
+	if method == "firebase" {
+		return getFirebaseBackup(ctx, bucket, key)
 	}
-	obj, err = getS3Backup(ctx, bucket, key, secretsPath)
-	if err == nil {
-		// queue this
-		uploadToPrimary(ctx, job, "s3")
-		return obj, nil
+	if method == "s3" {
+		return getS3Backup(ctx, bucket, key)
 	}
-	return storage.Object{}, err
+	return nil, fmt.Errorf("Not a valid credential file: %s", method)
 }
 
-func uploadToPrimary(ctx context.Context, job BackupJob, method string) error {
+func FetchFromBackup(ctx context.Context, job *BackupJob) (*storage.GetObject, error) {
 	key, bucket := job.Key, job.Bucket
-	secretsPath := config.GetSafeEnv("SECRETS_PATH", "/home/amaan/projects/storage-gateway/secrets")
-	primaryStore := s3_store.GetPrimaryStore()
-	var object storage.Object
-	var err error
-	if method == "firebase" {
-		object, err = getFirebaseBackup(ctx, bucket, key, secretsPath)
-	} else {
-		object, err = getS3Backup(ctx, bucket, key, secretsPath)
+	creds, err := getAvailableSecrets(bucket)
+	if err != nil {
+		return nil, err
 	}
+	for _, method := range creds {
+		obj, err := getBackup(ctx, method, bucket, key)
+		if err == nil {
+			// queue this
+			if err2 := UploadToPrimary(ctx, job, method); err2 != nil {
+				log.Printf("fb 2 p: %s", err2.Error())
+			}
+			return obj, nil
+		}
+	}
+	return nil, err
+}
+
+func UploadToPrimary(ctx context.Context, job *BackupJob, method string) error {
+	key, bucket := job.Key, job.Bucket
+	primaryStore := s3_store.GetPrimaryStore()
+
+	object, err := getBackup(ctx, method, bucket, key)
 	if err != nil {
 		return err
 	}
@@ -178,7 +200,7 @@ func uploadToPrimary(ctx context.Context, job BackupJob, method string) error {
 	}
 	defer object.Body.Close()
 
-	return primaryStore.Put(ctx, bucket, key, bytes.NewReader(data), storage.PutOptions{
+	return primaryStore.Put(ctx, bucket, key, bytes.NewReader(data), &storage.PutOptions{
 		ContentType:   object.ContentType,
 		Metadata:      object.Metadata,
 		ContentLength: int64(len(data)),
