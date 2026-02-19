@@ -35,9 +35,10 @@ func (s *Filer) Put(ctx context.Context, bucket string, key string, r io.Reader,
 		}
 	}
 	object := &storage.PutObject{
-		ContentType: opts.ContentType,
-		Metadata:    opts.Metadata,
-		Body:        r,
+		ContentType:   opts.ContentType,
+		Metadata:      opts.Metadata,
+		ContentLength: opts.ContentLength,
+		Body:          r,
 	}
 	object, err = optimizer.Optimize(object)
 	if err != nil {

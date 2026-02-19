@@ -41,6 +41,9 @@ func OptimizeImage(object *storage.PutObject) (*storage.PutObject, error) {
 		return nil, err
 	}
 
+	if object.Metadata == nil {
+		object.Metadata = map[string]string{}
+	}
 	object.Metadata["optimized"] = "true"
 	return &storage.PutObject{
 		ContentType:   contentType,
