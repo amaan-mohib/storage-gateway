@@ -4,7 +4,7 @@ import (
 	"bytes"
 
 	"github.com/davidbyttow/govips/v2/vips"
-	"github.com/storage-gateway/src/internal/storage"
+	"github.com/storage-gateway/src/storage"
 )
 
 func OptimizeImage(object *storage.PutObject) (*storage.PutObject, error) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/storage-gateway/src/internal/storage"
+	"github.com/storage-gateway/src/storage"
 )
 
 type FileService struct {

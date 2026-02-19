@@ -18,6 +18,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.6 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/hibiken/asynq v0.26.0 // indirect
+	github.com/redis/go-redis/v9 v9.18.0 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/image v0.36.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 )
@@ -79,11 +85,11 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
-	golang.org/x/time v0.11.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/api v0.231.0
 	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	google.golang.org/grpc v1.72.0 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 )

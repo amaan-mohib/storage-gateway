@@ -3,7 +3,7 @@ package optimizer
 import (
 	"strings"
 
-	"github.com/storage-gateway/src/internal/storage"
+	"github.com/storage-gateway/src/storage"
 )
 
 func Optimize(object *storage.PutObject) (*storage.PutObject, error) {

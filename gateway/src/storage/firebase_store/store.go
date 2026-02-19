@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 
 	"cloud.google.com/go/storage"
 	firebase "firebase.google.com/go"
-	internal "github.com/storage-gateway/src/internal/storage"
-	"github.com/storage-gateway/src/internal/storage/optimizer"
+	internal "github.com/storage-gateway/src/storage"
+	"github.com/storage-gateway/src/storage/optimizer"
 	"google.golang.org/api/option"
 )
 
@@ -30,7 +29,7 @@ func (s *Filer) GetBucket(ctx context.Context, bucketStr string) (*storage.Bucke
 	if clientError != nil {
 		return nil, clientError
 	}
-	log.Println(bucketStr, s.projectId)
+
 	if bucketStr == "default" {
 		return client.Bucket(fmt.Sprintf("%s.appspot.com", s.projectId))
 	} else {

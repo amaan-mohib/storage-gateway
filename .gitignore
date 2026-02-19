@@ -2,3 +2,4 @@ secrets
 *.jpg
 *.png
 *.mp4
+.env

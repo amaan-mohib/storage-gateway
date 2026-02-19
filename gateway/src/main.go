@@ -11,11 +11,13 @@ import (
 	"github.com/davidbyttow/govips/v2/vips"
 	server "github.com/storage-gateway/src/internal/http"
 	"github.com/storage-gateway/src/internal/service"
-	"github.com/storage-gateway/src/internal/storage/s3_store"
+	"github.com/storage-gateway/src/queue"
+	"github.com/storage-gateway/src/storage/s3_store"
 )
 
 func main() {
 	vips.Startup(nil)
+	asyncClient := queue.InitQueue()
 
 	store := s3_store.GetPrimaryStore()
 	files := service.NewFileService(store)
@@ -33,6 +35,9 @@ func main() {
 		func() error {
 			vips.Shutdown()
 			return nil
+		},
+		func() error {
+			return asyncClient.Close()
 		},
 		func() error {
 			os.Exit(0)

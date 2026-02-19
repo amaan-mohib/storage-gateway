@@ -8,10 +8,11 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/storage-gateway/src/internal/config"
+	"github.com/storage-gateway/src/config"
 	"github.com/storage-gateway/src/internal/service"
-	"github.com/storage-gateway/src/internal/storage"
-	"github.com/storage-gateway/src/internal/storage/backup"
+	"github.com/storage-gateway/src/queue"
+	"github.com/storage-gateway/src/storage"
+	"github.com/storage-gateway/src/storage/backup"
 )
 
 type Handler struct {
@@ -70,8 +71,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// queue this
-	backup.ProcessBackup(&backup.BackupJob{
+	queue.EnqueueBackup(queue.BackupJob{
 		Key:    key,
 		Bucket: bucket,
 	})
@@ -97,7 +97,7 @@ func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 
 		io.Copy(w, out.Body)
 	} else {
-		out, err := backup.FetchFromBackup(ctx, &backup.BackupJob{Key: key, Bucket: bucket})
+		out, err := backup.FetchFromBackup(ctx, &queue.BackupJob{Key: key, Bucket: bucket})
 		if err != nil {
 			log.Printf("not exist nf: %s", err.Error())
 			http.NotFound(w, r)

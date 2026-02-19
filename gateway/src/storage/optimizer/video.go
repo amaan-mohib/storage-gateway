@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/storage-gateway/src/internal/storage"
+	"github.com/storage-gateway/src/storage"
 )
 
 func OptimizeVideo(object *storage.PutObject) (*storage.PutObject, error) {

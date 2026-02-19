@@ -7,8 +7,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/storage-gateway/src/internal/storage"
-	"github.com/storage-gateway/src/internal/storage/optimizer"
+
+	"github.com/storage-gateway/src/storage"
+	"github.com/storage-gateway/src/storage/optimizer"
 )
 
 type Filer struct {

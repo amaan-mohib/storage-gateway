@@ -42,4 +42,8 @@ var (
 		"key":          "MINIO_VOLUME_LOCATION",
 		"defaultValue": path.Join(getHomeDir(), "minio", "data"),
 	}
+	AsynqRedisUrl = map[string]string{
+		"key":          "ASYNQ_REDIS_URL",
+		"defaultValue": "localhost:6379",
+	}
 )
