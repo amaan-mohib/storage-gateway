@@ -34,7 +34,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid token", http.StatusBadRequest)
 		return
 	}
-	if string(decodedToken) != config.GetSafeEnv("ADMIN_ACCESS_TOKEN", "admin123") {
+	if string(decodedToken) != config.GetSafeEnv(config.AdminAccessToken) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}

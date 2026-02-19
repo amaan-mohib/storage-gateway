@@ -16,7 +16,7 @@ import (
 	"github.com/storage-gateway/src/internal/storage/s3_store"
 )
 
-var secretsPath = config.GetSafeEnv("SECRETS_PATH", "/home/amaan/projects/storage-gateway/secrets")
+var secretsPath = config.GetSafeEnv(config.SecretsPath)
 
 func getAvailableSecrets(bucket string) ([]string, error) {
 	entries, err := os.ReadDir(path.Join(secretsPath, bucket))

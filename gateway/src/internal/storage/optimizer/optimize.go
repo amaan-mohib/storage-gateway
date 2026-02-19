@@ -7,7 +7,10 @@ import (
 )
 
 func Optimize(object *storage.PutObject) (*storage.PutObject, error) {
-	if object.Metadata["optimized"] == "true" {
+	if object.ContentLength < 500*1024 {
+		return object, nil
+	}
+	if object.Metadata != nil && object.Metadata["optimized"] == "true" {
 		return object, nil
 	}
 
