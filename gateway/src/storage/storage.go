@@ -9,9 +9,9 @@ import (
 )
 
 type PutOptions struct {
-	ContentType   string
-	Metadata      map[string]string
-	ContentLength int64
+	ContentType   string            `json:"contentType"`
+	Metadata      map[string]string `json:"metadata"`
+	ContentLength int64             `json:"contentLength"`
 }
 
 type Object[T any] struct {

@@ -1,8 +1,8 @@
 package queue
 
 const TypeBackupFile = "backup:file"
-
 const TypeUploadFile = "upload:file"
+const TypeDeleteFile = "delete:file"
 
 type BackupJob struct {
 	Key    string `json:"key"`
@@ -14,3 +14,5 @@ type UploadJob struct {
 	Bucket string `json:"bucket"`
 	Method string `json:"method,omitempty"`
 }
+
+type DeleteJob = BackupJob

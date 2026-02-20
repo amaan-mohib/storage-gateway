@@ -28,3 +28,14 @@ func EnqueueUpload(job UploadJob) error {
 	_, err = asynqClient.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(10*time.Minute))
 	return err
 }
+
+func EnqueueDelete(job DeleteJob) error {
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeDeleteFile, payload)
+
+	_, err = asynqClient.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(10*time.Minute))
+	return err
+}

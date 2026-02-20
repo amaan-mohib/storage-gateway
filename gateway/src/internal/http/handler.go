@@ -1,14 +1,11 @@
 package http
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/storage-gateway/src/config"
 	"github.com/storage-gateway/src/internal/service"
 	"github.com/storage-gateway/src/queue"
 	"github.com/storage-gateway/src/storage"
@@ -24,22 +21,6 @@ func NewHandler(files *service.FileService) *Handler {
 }
 
 func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("X-Access-Token")
-	if token == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	decodedToken, decodeErr := base64.StdEncoding.DecodeString(token)
-	if decodeErr != nil {
-		http.Error(w, "Invalid token", http.StatusBadRequest)
-		return
-	}
-	if string(decodedToken) != config.GetSafeEnv(config.AdminAccessToken) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	bucket := chi.URLParam(r, "bucket")
 	key := chi.URLParam(r, "*")
 
@@ -61,11 +42,13 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	err = h.files.Upload(r.Context(), bucket, key, file, &storage.PutOptions{
+	putOptions := &storage.PutOptions{
 		ContentType:   contentType,
 		Metadata:      metadata,
 		ContentLength: header.Size,
-	})
+	}
+
+	err = h.files.Upload(r.Context(), bucket, key, file, putOptions)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -76,7 +59,13 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		Bucket: bucket,
 	})
 
-	w.WriteHeader(http.StatusCreated)
+	res, err := json.Marshal(putOptions)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(res)
 }
 
 func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
@@ -89,22 +78,42 @@ func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 	if exists {
 		out, err := h.files.GetFile(ctx, bucket, key)
 		if err != nil {
-			log.Printf("exist nf: %s", err.Error())
 			http.NotFound(w, r)
 			return
 		}
 		defer out.Body.Close()
+		w.Header().Set("Content-Type", out.ContentType)
 
 		io.Copy(w, out.Body)
 	} else {
 		out, err := backup.FetchFromBackup(ctx, &queue.BackupJob{Key: key, Bucket: bucket})
 		if err != nil {
-			log.Printf("not exist nf: %s", err.Error())
 			http.NotFound(w, r)
 			return
 		}
 		defer out.Body.Close()
 
+		w.Header().Set("Content-Type", out.ContentType)
 		io.Copy(w, out.Body)
 	}
+}
+
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	bucket := chi.URLParam(r, "bucket")
+	key := chi.URLParam(r, "*")
+	deleteBackup := r.URL.Query().Get("deleteBackup")
+	ctx := r.Context()
+
+	err := h.files.Delete(ctx, bucket, key)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if deleteBackup == "true" {
+		queue.EnqueueDelete(queue.DeleteJob{
+			Key:    key,
+			Bucket: bucket,
+		})
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

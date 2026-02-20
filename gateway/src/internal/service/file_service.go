@@ -26,3 +26,7 @@ func (s *FileService) GetFile(ctx context.Context, bucket string, key string) (*
 func (s *FileService) Exists(ctx context.Context, bucket string, key string) bool {
 	return s.store.Exists(ctx, bucket, key)
 }
+
+func (s *FileService) Delete(ctx context.Context, bucket string, key string) error {
+	return s.store.Delete(ctx, bucket, key)
+}

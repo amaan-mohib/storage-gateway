@@ -27,6 +27,7 @@ func main() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(queue.TypeBackupFile, handler.HandleBackupTask)
 	mux.HandleFunc(queue.TypeUploadFile, handler.HandleUploadTask)
+	mux.HandleFunc(queue.TypeDeleteFile, handler.HandleDeleteTask)
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)
