@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/storage-gateway/src/internal/service"
@@ -68,6 +69,34 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
+func writeCacheHeaders(w http.ResponseWriter, r *http.Request, file *storage.GetObject, tempCache bool) bool {
+	w.Header().Set("Content-Type", file.ContentType)
+	if file.ContentLength > 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(file.ContentLength, 10))
+	}
+	w.Header().Set("Last-Modified", file.LastModified.Format(http.TimeFormat))
+	if tempCache {
+		w.Header().Set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400, stale-if-error=1200")
+	} else {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, stale-if-error=1200, immutable")
+	}
+
+	if match := r.Header.Get("If-None-Match"); match == file.ETag {
+		w.WriteHeader(http.StatusNotModified)
+		return true
+	}
+
+	ifModifiedSince := r.Header.Get("If-Modified-Since")
+	if ifModifiedSince != "" {
+		t, err := http.ParseTime(ifModifiedSince)
+		if err == nil && file.LastModified.Before(t) {
+			w.WriteHeader(http.StatusNotModified)
+			return true
+		}
+	}
+	return false
+}
+
 func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 	bucket := chi.URLParam(r, "bucket")
 	key := chi.URLParam(r, "*")
@@ -82,7 +111,10 @@ func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer out.Body.Close()
-		w.Header().Set("Content-Type", out.ContentType)
+
+		if ret := writeCacheHeaders(w, r, out, false); ret {
+			return
+		}
 
 		io.Copy(w, out.Body)
 	} else {
@@ -93,7 +125,10 @@ func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 		}
 		defer out.Body.Close()
 
-		w.Header().Set("Content-Type", out.ContentType)
+		if ret := writeCacheHeaders(w, r, out, true); ret {
+			return
+		}
+
 		io.Copy(w, out.Body)
 	}
 }

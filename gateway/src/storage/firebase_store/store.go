@@ -93,9 +93,12 @@ func (s *Filer) Get(ctx context.Context, bucketStr string, key string) (*interna
 	defer rc.Close()
 
 	return &internal.GetObject{
-		ContentType: attrs.ContentType,
-		Metadata:    attrs.Metadata,
-		Body:        rc,
+		ContentType:   attrs.ContentType,
+		Metadata:      attrs.Metadata,
+		Body:          rc,
+		ContentLength: attrs.Size,
+		ETag:          attrs.Etag,
+		LastModified:  attrs.Updated,
 	}, nil
 }
 

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"io"
+	"time"
 
 	firebase "firebase.google.com/go"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -19,6 +20,8 @@ type Object[T any] struct {
 	Metadata      map[string]string
 	ContentLength int64
 	Body          T
+	ETag          string
+	LastModified  time.Time
 }
 
 type PutObject = Object[io.Reader]

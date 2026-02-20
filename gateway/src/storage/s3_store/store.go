@@ -65,9 +65,12 @@ func (s *Filer) Get(ctx context.Context, bucket string, key string) (*storage.Ge
 		return nil, err
 	}
 	return &storage.GetObject{
-		ContentType: *out.ContentType,
-		Metadata:    out.Metadata,
-		Body:        out.Body,
+		ContentType:   *out.ContentType,
+		Metadata:      out.Metadata,
+		Body:          out.Body,
+		ContentLength: *out.ContentLength,
+		ETag:          *out.ETag,
+		LastModified:  *out.LastModified,
 	}, nil
 }
 
