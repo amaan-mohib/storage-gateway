@@ -8,7 +8,7 @@ services:
     networks:
       - storage
     volumes:
-      - ~/projects/storage-gateway/secrets:/secrets
+      - ${SECRETS_VOLUME_PATH:-~/storage-gateway/secrets}:/secrets
     depends_on:
       gateway-redis:
         condition: service_healthy
@@ -21,7 +21,7 @@ services:
     networks:
       - storage
     volumes:
-      - ~/projects/storage-gateway/secrets:/secrets
+      - ${SECRETS_VOLUME_PATH:-~/storage-gateway/secrets}:/secrets
     depends_on:
       gateway-redis:
         condition: service_healthy
