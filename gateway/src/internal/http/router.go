@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
 	"github.com/go-chi/render"
 )
@@ -17,9 +18,10 @@ func NewRouter(h *Handler) *chi.Mux {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.StripSlashes)
-	r.Use(middleware.Heartbeat("/health"))
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 	r.Use(httprate.LimitByIP(1000, 1*time.Minute))
+	r.Use(cors.AllowAll().Handler)
+	r.Use(middleware.Heartbeat("/health"))
 
 	r.Get("/{bucket}/*", h.Download)
 	r.With(AuthMiddleware).Post("/{bucket}/*", h.Upload)
