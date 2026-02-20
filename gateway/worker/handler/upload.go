@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/storage-gateway/src/queue"
@@ -33,6 +34,11 @@ func HandleUploadTask(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 	defer object.Body.Close()
+
+	if object.Metadata == nil {
+		object.Metadata = map[string]string{}
+	}
+	object.Metadata["original-upload-date"] = object.LastModified.Format(time.RFC1123)
 
 	err = primaryStore.Put(ctx, bucket, key, bytes.NewReader(data), &storage.PutOptions{
 		ContentType:   object.ContentType,

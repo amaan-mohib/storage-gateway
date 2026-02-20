@@ -74,6 +74,7 @@ func writeCacheHeaders(w http.ResponseWriter, r *http.Request, file *storage.Get
 	if file.ContentLength > 0 {
 		w.Header().Set("Content-Length", strconv.FormatInt(file.ContentLength, 10))
 	}
+	w.Header().Set("ETag", file.ETag)
 	w.Header().Set("Last-Modified", file.LastModified.Format(http.TimeFormat))
 	if tempCache {
 		w.Header().Set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400, stale-if-error=1200")
