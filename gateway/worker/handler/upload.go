@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/storage-gateway/src/processing"
 	"github.com/storage-gateway/src/queue"
 	"github.com/storage-gateway/src/storage"
-	"github.com/storage-gateway/src/storage/backup"
 	"github.com/storage-gateway/src/storage/s3_store"
 )
 
@@ -25,7 +25,7 @@ func HandleUploadTask(ctx context.Context, t *asynq.Task) error {
 
 	fmt.Println("Starting copy upload: ", key)
 
-	object, err := backup.GetBackup(ctx, method, bucket, key)
+	object, err := processing.GetBackup(ctx, method, bucket, key)
 	if err != nil {
 		return err
 	}

@@ -8,8 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
+	"github.com/storage-gateway/src/optimizer"
 	"github.com/storage-gateway/src/storage"
-	"github.com/storage-gateway/src/storage/optimizer"
 )
 
 type Filer struct {
@@ -45,14 +45,19 @@ func (s *Filer) Put(ctx context.Context, bucket string, key string, r io.Reader,
 	if err != nil {
 		return err
 	}
-	_, err = s.S3.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:        aws.String(bucket),
-		Key:           aws.String(key),
-		Body:          object.Body,
-		ContentType:   aws.String(object.ContentType),
-		Metadata:      object.Metadata,
-		ContentLength: &object.ContentLength,
-	})
+	input := &s3.PutObjectInput{
+		Bucket:   aws.String(bucket),
+		Key:      aws.String(key),
+		Body:     object.Body,
+		Metadata: object.Metadata,
+	}
+	if object.ContentLength > 0 {
+		input.ContentLength = &object.ContentLength
+	}
+	if object.ContentType != "" {
+		input.ContentType = aws.String(object.ContentType)
+	}
+	_, err = s.S3.PutObject(ctx, input)
 	return err
 }
 

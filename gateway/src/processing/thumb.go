@@ -1,4 +1,4 @@
-package thumb
+package processing
 
 import (
 	"bytes"
@@ -13,29 +13,11 @@ import (
 	"github.com/storage-gateway/src/internal/service"
 	"github.com/storage-gateway/src/queue"
 	"github.com/storage-gateway/src/storage"
-	"github.com/storage-gateway/src/storage/backup"
 )
 
 const ThumbExt string = ".thumb.jpg"
 
-func GenerateThumb(ctx context.Context, fileHandler *service.FileService, job *queue.BackupJob) (*storage.GetObject, error) {
-	key, bucket := job.Key, job.Bucket
-	videoKey := strings.Replace(key, ThumbExt, "", 1)
-	exists := fileHandler.Exists(ctx, bucket, videoKey)
-	var videoFile *storage.GetObject
-	var err error
-	if exists {
-		videoFile, err = fileHandler.GetFile(ctx, bucket, videoKey)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		videoFile, err = backup.FetchFromBackup(ctx, &queue.BackupJob{Key: videoKey, Bucket: bucket})
-		if err != nil {
-			return nil, err
-		}
-	}
-
+func GenerateThumb(ctx context.Context, videoFile *storage.GetObject) (*storage.PutObject, error) {
 	now := time.Now().Unix()
 	inFile, err := os.CreateTemp("", fmt.Sprintf("input-%d-*.mp4", now))
 	if err != nil {
@@ -48,7 +30,6 @@ func GenerateThumb(ctx context.Context, fileHandler *service.FileService, job *q
 	if err != nil {
 		return nil, err
 	}
-	defer videoFile.Body.Close()
 
 	if _, err := inFile.Write(inData); err != nil {
 		return nil, err
@@ -84,9 +65,44 @@ func GenerateThumb(ctx context.Context, fileHandler *service.FileService, job *q
 	body := bytes.NewReader(data)
 	contentType := "image/jpeg"
 
-	err = fileHandler.Upload(ctx, bucket, key, body, &storage.PutOptions{
+	obj := &storage.PutObject{
 		ContentType:   contentType,
+		Metadata:      videoFile.Metadata,
 		ContentLength: size,
+		Body:          body,
+	}
+
+	return obj, nil
+}
+
+func FetchAndGenerateThumb(ctx context.Context, fileHandler *service.FileService, job *queue.BackupJob) (*storage.GetObject, error) {
+	key, bucket := job.Key, job.Bucket
+	videoKey := strings.Replace(key, ThumbExt, "", 1)
+	exists := fileHandler.Exists(ctx, bucket, videoKey)
+	var videoFile *storage.GetObject
+	var err error
+
+	if exists {
+		videoFile, err = fileHandler.GetFile(ctx, bucket, videoKey)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		videoFile, err = FetchFromBackup(ctx, &queue.BackupJob{Key: videoKey, Bucket: bucket})
+		if err != nil {
+			return nil, err
+		}
+	}
+	thumb, err := GenerateThumb(ctx, videoFile)
+	if err != nil {
+		return nil, err
+	}
+	defer videoFile.Body.Close()
+
+	err = fileHandler.Upload(ctx, bucket, key, thumb.Body, &storage.PutOptions{
+		ContentType:   thumb.ContentType,
+		Metadata:      thumb.Metadata,
+		ContentLength: thumb.ContentLength,
 	})
 	if err != nil {
 		return nil, err

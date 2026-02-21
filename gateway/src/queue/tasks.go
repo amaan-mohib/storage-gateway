@@ -3,6 +3,7 @@ package queue
 const TypeBackupFile = "backup:file"
 const TypeUploadFile = "upload:file"
 const TypeDeleteFile = "delete:file"
+const TypeGenerateThumb = "generate:thumb"
 
 type BackupJob struct {
 	Key    string `json:"key"`
@@ -16,3 +17,5 @@ type UploadJob struct {
 }
 
 type DeleteJob = BackupJob
+
+type GenerateThumbJob = BackupJob

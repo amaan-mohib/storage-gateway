@@ -9,10 +9,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/storage-gateway/src/internal/service"
+	"github.com/storage-gateway/src/processing"
 	"github.com/storage-gateway/src/queue"
 	"github.com/storage-gateway/src/storage"
-	"github.com/storage-gateway/src/storage/backup"
-	"github.com/storage-gateway/src/storage/thumb"
 )
 
 type Handler struct {
@@ -26,9 +25,22 @@ func NewHandler(files *service.FileService) *Handler {
 func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	bucket := chi.URLParam(r, "bucket")
 	key := chi.URLParam(r, "*")
+	ctx := r.Context()
+
+	if h.files.Exists(ctx, bucket, key) {
+		http.Error(w, "Key already exists", http.StatusBadRequest)
+		return
+	}
 
 	file, header, err := r.FormFile("file")
 	contentType := header.Header.Get("Content-Type")
+	isImageOrVideo := strings.HasPrefix(contentType, "image/") || strings.HasPrefix(contentType, "video/")
+	if !isImageOrVideo {
+		buffer := make([]byte, 512)
+		n, _ := file.Read(buffer)
+		contentType = http.DetectContentType(buffer[:n])
+		file.Seek(0, io.SeekStart)
+	}
 
 	var metadata map[string]string
 	metadataStr := r.FormValue("metadata")
@@ -51,7 +63,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		ContentLength: header.Size,
 	}
 
-	err = h.files.Upload(r.Context(), bucket, key, file, putOptions)
+	err = h.files.Upload(ctx, bucket, key, file, putOptions)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -61,6 +73,13 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		Key:    key,
 		Bucket: bucket,
 	})
+
+	if strings.HasPrefix(contentType, "video/") {
+		queue.EnqueueGenerateThumb(queue.GenerateThumbJob{
+			Key:    key,
+			Bucket: bucket,
+		})
+	}
 
 	res, err := json.Marshal(putOptions)
 	if err != nil {
@@ -124,16 +143,16 @@ func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 		var out *storage.GetObject
 		var err error
 		payload := &queue.BackupJob{Key: key, Bucket: bucket}
-		isThumb := strings.HasSuffix(key, thumb.ThumbExt)
+		isThumb := strings.HasSuffix(key, processing.ThumbExt)
 
 		if isThumb {
-			out, err = thumb.GenerateThumb(ctx, h.files, payload)
+			out, err = processing.FetchAndGenerateThumb(ctx, h.files, payload)
 			if err != nil {
 				http.NotFound(w, r)
 				return
 			}
 		} else {
-			out, err = backup.FetchFromBackup(ctx, payload)
+			out, err = processing.FetchFromBackup(ctx, payload)
 			if err != nil {
 				http.NotFound(w, r)
 				return

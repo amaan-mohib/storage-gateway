@@ -1,4 +1,4 @@
-package backup
+package processing
 
 import (
 	"context"
@@ -57,11 +57,10 @@ func FetchFromBackup(ctx context.Context, job *queue.BackupJob) (*storage.GetObj
 	if err != nil {
 		return nil, err
 	}
-	var obj *storage.GetObject
-	var getErr error
+
 	for _, method := range creds {
-		obj, getErr = GetBackup(ctx, method, bucket, key)
-		if getErr == nil {
+		obj, err := GetBackup(ctx, method, bucket, key)
+		if err == nil {
 			queue.EnqueueUpload(queue.UploadJob{
 				Key:    key,
 				Bucket: bucket,
@@ -70,5 +69,5 @@ func FetchFromBackup(ctx context.Context, job *queue.BackupJob) (*storage.GetObj
 			return obj, nil
 		}
 	}
-	return nil, getErr
+	return nil, fmt.Errorf("No credentials found")
 }

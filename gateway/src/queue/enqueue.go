@@ -39,3 +39,14 @@ func EnqueueDelete(job DeleteJob) error {
 	_, err = asynqClient.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(10*time.Minute))
 	return err
 }
+
+func EnqueueGenerateThumb(job GenerateThumbJob) error {
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return err
+	}
+	task := asynq.NewTask(TypeGenerateThumb, payload)
+
+	_, err = asynqClient.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(10*time.Minute))
+	return err
+}

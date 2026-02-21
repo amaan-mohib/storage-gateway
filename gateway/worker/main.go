@@ -28,6 +28,7 @@ func main() {
 	mux.HandleFunc(queue.TypeBackupFile, handler.HandleBackupTask)
 	mux.HandleFunc(queue.TypeUploadFile, handler.HandleUploadTask)
 	mux.HandleFunc(queue.TypeDeleteFile, handler.HandleDeleteTask)
+	mux.HandleFunc(queue.TypeGenerateThumb, handler.HandleGenerateThumbTask)
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)

@@ -24,7 +24,16 @@ func processS3Backup(ctx context.Context, original *storage.PutObject, bucket st
 	if err != nil {
 		return err
 	}
-	return s3Client.Put(ctx, bucket, key, original.Body, &storage.PutOptions{ContentType: original.ContentType, Metadata: original.Metadata})
+	return s3Client.Put(
+		ctx,
+		bucket,
+		key,
+		original.Body,
+		&storage.PutOptions{
+			ContentType:   original.ContentType,
+			Metadata:      original.Metadata,
+			ContentLength: original.ContentLength,
+		})
 }
 
 func processFirebaseBackup(ctx context.Context, original *storage.PutObject, bucket string, key string) error {
@@ -69,9 +78,10 @@ func HandleBackupTask(ctx context.Context, t *asynq.Task) error {
 
 	for _, method := range creds {
 		obj := &storage.PutObject{
-			Body:        bytes.NewReader(bodyBytes),
-			ContentType: original.ContentType,
-			Metadata:    original.Metadata,
+			Body:          bytes.NewReader(bodyBytes),
+			ContentType:   original.ContentType,
+			Metadata:      original.Metadata,
+			ContentLength: original.ContentLength,
 		}
 		if method == "firebase" {
 			if err = processFirebaseBackup(ctx, obj, bucket, key); err != nil {

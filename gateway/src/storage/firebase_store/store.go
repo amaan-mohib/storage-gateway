@@ -7,8 +7,8 @@ import (
 
 	"cloud.google.com/go/storage"
 	firebase "firebase.google.com/go"
+	"github.com/storage-gateway/src/optimizer"
 	internal "github.com/storage-gateway/src/storage"
-	"github.com/storage-gateway/src/storage/optimizer"
 	"google.golang.org/api/option"
 )
 
@@ -63,7 +63,15 @@ func (s *Filer) Put(ctx context.Context, bucketStr string, key string, r io.Read
 	}
 
 	wc := bucket.Object(key).NewWriter(ctx)
-	wc.ObjectAttrs.Metadata = object.Metadata
+	if object.Metadata != nil {
+		wc.ObjectAttrs.Metadata = object.Metadata
+	}
+	if object.ContentType != "" {
+		wc.ObjectAttrs.ContentType = object.ContentType
+	}
+	if object.ContentLength > 0 {
+		wc.ObjectAttrs.Size = object.ContentLength
+	}
 
 	if _, err = io.Copy(wc, object.Body); err != nil {
 		return fmt.Errorf("io.Copy: %w", err)
