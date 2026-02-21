@@ -38,6 +38,7 @@ func OptimizeVideo(object *storage.PutObject) (*storage.PutObject, error) {
 
 	cmd := exec.Command("ffmpeg", "-y",
 		"-i", inFile.Name(),
+		"-vf", "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2",
 		"-c:v", "libx264",
 		"-preset", "slow",
 		"-crf", "26",

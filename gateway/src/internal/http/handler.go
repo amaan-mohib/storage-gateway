@@ -5,12 +5,14 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/storage-gateway/src/internal/service"
 	"github.com/storage-gateway/src/queue"
 	"github.com/storage-gateway/src/storage"
 	"github.com/storage-gateway/src/storage/backup"
+	"github.com/storage-gateway/src/storage/thumb"
 )
 
 type Handler struct {
@@ -119,14 +121,27 @@ func (h *Handler) Download(w http.ResponseWriter, r *http.Request) {
 
 		io.Copy(w, out.Body)
 	} else {
-		out, err := backup.FetchFromBackup(ctx, &queue.BackupJob{Key: key, Bucket: bucket})
-		if err != nil {
-			http.NotFound(w, r)
-			return
+		var out *storage.GetObject
+		var err error
+		payload := &queue.BackupJob{Key: key, Bucket: bucket}
+		isThumb := strings.HasSuffix(key, thumb.ThumbExt)
+
+		if isThumb {
+			out, err = thumb.GenerateThumb(ctx, h.files, payload)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+		} else {
+			out, err = backup.FetchFromBackup(ctx, payload)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
 		}
 		defer out.Body.Close()
 
-		if ret := writeCacheHeaders(w, r, out, true); ret {
+		if ret := writeCacheHeaders(w, r, out, !isThumb); ret {
 			return
 		}
 

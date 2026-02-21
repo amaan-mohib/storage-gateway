@@ -46,15 +46,22 @@ func GetBackup(ctx context.Context, method string, bucket string, key string) (*
 	return nil, fmt.Errorf("Not a valid credential file: %s", method)
 }
 
+// FetchFromBackup retrieves an object from backup storage using available credentials.
+// It attempts to fetch the object specified by the job's key and bucket using each
+// available authentication method until one succeeds. Upon successful retrieval,
+// it enqueues an upload job to restore the object to primary storage.
+// Returns an error if all credential methods fail to retrieve the backup.
 func FetchFromBackup(ctx context.Context, job *queue.BackupJob) (*storage.GetObject, error) {
 	key, bucket := job.Key, job.Bucket
 	creds, err := config.GetAvailableSecrets(bucket)
 	if err != nil {
 		return nil, err
 	}
+	var obj *storage.GetObject
+	var getErr error
 	for _, method := range creds {
-		obj, err := GetBackup(ctx, method, bucket, key)
-		if err == nil {
+		obj, getErr = GetBackup(ctx, method, bucket, key)
+		if getErr == nil {
 			queue.EnqueueUpload(queue.UploadJob{
 				Key:    key,
 				Bucket: bucket,
@@ -63,5 +70,5 @@ func FetchFromBackup(ctx context.Context, job *queue.BackupJob) (*storage.GetObj
 			return obj, nil
 		}
 	}
-	return nil, err
+	return nil, getErr
 }

@@ -15,18 +15,21 @@ type PutOptions struct {
 	ContentLength int64             `json:"contentLength"`
 }
 
-type Object[T any] struct {
+type PutObject struct {
 	ContentType   string
 	Metadata      map[string]string
 	ContentLength int64
-	Body          T
+	Body          io.Reader
+}
+
+type GetObject struct {
+	ContentType   string
+	Metadata      map[string]string
+	ContentLength int64
+	Body          io.ReadCloser
 	ETag          string
 	LastModified  time.Time
 }
-
-type PutObject = Object[io.Reader]
-
-type GetObject = Object[io.ReadCloser]
 
 type Client struct {
 	S3       *s3.Client
